@@ -41,14 +41,14 @@ def vid2jpg(file_name, class_path, dst_class_path):
 
 
 def class_process(dir_path, dst_dir_path, class_name):
-    print('*' * 20, class_name, '*'*20)
+    print('*' * 20, class_name, '*'*20)0
     class_path = os.path.join(dir_path, class_name)
     if not os.path.isdir(class_path):
         print('*** is not a dir {}'.format(class_path))
         return
 
     dst_class_path = os.path.join(dst_dir_path, class_name)
-    if not os.path.exists(dst_class_path):
+    if not os.path.exists(dst_class_path):  
         os.mkdir(dst_class_path)
 
     vid_list = os.listdir(class_path)

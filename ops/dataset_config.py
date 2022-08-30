@@ -3,9 +3,25 @@
 # Ji Lin*, Chuang Gan, Song Han
 # {jilin, songhan}@mit.edu, ganchuang@csail.mit.edu
 
+from ast import Not
+from fileinput import filename
 import os
 
 ROOT_DATASET = '/ssd/video/'  # '/data/jilin/'
+ROOT_DATASET = '/home/mohitm/repos/brarista_production/s3_buckets/br-cv-tech/Non-DC_Datasets/Rotation_Test_Videos/v3'  # '/data/jilin/'
+
+
+def return_rotation(modality):
+    filename_categories = "/home/mohitm/repos/temporal-shift-module/data/category.txt"
+    if modality == "RGB":
+        root_data = "/home/mohitm/repos/brarista_production/s3_buckets/br-cv-tech/Non-DC_Datasets/Rotation_Test_Videos/v3/all"
+        filename_imglist_train = 'training_list.txt'
+        filename_imglist_val = 'validation_list.txt'
+        prefix = '{:06d}.jpg'
+    else:
+        raise Not("No Flow Modality yet")
+
+    return filename_categories, filename_imglist_train, filename_imglist_val, root_data, prefix
 
 
 def return_ucf101(modality):
@@ -104,7 +120,7 @@ def return_kinetics(modality):
 def return_dataset(dataset, modality):
     dict_single = {'jester': return_jester, 'something': return_something, 'somethingv2': return_somethingv2,
                    'ucf101': return_ucf101, 'hmdb51': return_hmdb51,
-                   'kinetics': return_kinetics }
+                   'kinetics': return_kinetics, 'rotation': return_rotation }
     if dataset in dict_single:
         file_categories, file_imglist_train, file_imglist_val, root_data, prefix = dict_single[dataset](modality)
     else:
@@ -122,3 +138,6 @@ def return_dataset(dataset, modality):
     n_class = len(categories)
     print('{}: {} classes'.format(dataset, n_class))
     return n_class, file_imglist_train, file_imglist_val, root_data, prefix
+
+
+#

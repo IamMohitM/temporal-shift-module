@@ -1,0 +1,8 @@
+logs/
+pretrained/
+
+
+*events*
+*.pyc
+*__pycache__*
+.vscode/

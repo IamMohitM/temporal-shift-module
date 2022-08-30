@@ -93,7 +93,7 @@ class TSNDataSet(data.Dataset):
 
     def _parse_list(self):
         # check the frame number is large >3:
-        tmp = [x.strip().split(' ') for x in open(self.list_file)]
+        tmp = [x.strip().rsplit(' ', maxsplit=2) for x in open(self.list_file)]
         if not self.test_mode or self.remove_missing:
             tmp = [item for item in tmp if int(item[1]) >= 3]
         self.video_list = [VideoRecord(item) for item in tmp]
@@ -189,6 +189,7 @@ class TSNDataSet(data.Dataset):
             else:
                 file_name = self.image_tmpl.format(1)
                 full_path = os.path.join(self.root_path, record.path, file_name)
+                print(f"Next path {full_path}")
 
         if not self.test_mode:
             segment_indices = self._sample_indices(record) if self.random_shift else self._get_val_indices(record)
