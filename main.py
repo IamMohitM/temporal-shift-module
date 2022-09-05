@@ -69,7 +69,7 @@ def main():
     input_mean = model.input_mean
     input_std = model.input_std
     policies = model.get_optim_policies()
-    train_augmentation = model.get_augmentation(flip=False if 'something' in args.dataset or 'jester' in args.dataset else True)
+    train_augmentation = model.get_augmentation(flip=False if args.dataset in ['rotation', 'something' , 'jester'] else True)
 
     model = torch.nn.DataParallel(model, device_ids=args.gpus).cuda()
 
@@ -213,7 +213,7 @@ def main():
                 'state_dict': model.state_dict(),
                 'optimizer': optimizer.state_dict(),
                 'best_prec1': best_prec1,
-            }, is_best)
+            }, model, is_best)
 
 
 def train(train_loader, model, criterion, optimizer, epoch, log, tf_writer):
@@ -339,10 +339,12 @@ def validate(val_loader, model, criterion, epoch, log=None, tf_writer=None):
     return top1.avg
 
 
-def save_checkpoint(state, is_best):
+def save_checkpoint(state, model, is_best):
     filename = '%s/%s/ckpt.pth.tar' % (args.root_model, args.store_name)
     torch.save(state, filename)
     if is_best:
+        print(f"Best model at {state['epoch']}")
+        torch.jit.save(model, '%s/%s/ckpt_ts.pt' % (args.root_model, args.store_name))
         shutil.copyfile(filename, filename.replace('pth.tar', 'best.pth.tar'))
 
 

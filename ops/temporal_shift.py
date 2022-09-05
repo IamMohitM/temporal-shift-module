@@ -93,7 +93,7 @@ class TemporalPool(nn.Module):
         return x
 
 
-def make_temporal_shift(net, n_segment, n_div=8, place='blockres', temporal_pool=False):
+def make_temporal_shift(net, n_segment, n_div=8, place='blockres', temporal_pool=False, inplace_shift = True):
     if temporal_pool:
         n_segment_list = [n_segment, n_segment // 2, n_segment // 2, n_segment // 2]
     else:
@@ -127,7 +127,7 @@ def make_temporal_shift(net, n_segment, n_div=8, place='blockres', temporal_pool
                 print('=> Processing stage with {} blocks residual'.format(len(blocks)))
                 for i, b in enumerate(blocks):
                     if i % n_round == 0:
-                        blocks[i].conv1 = TemporalShift(b.conv1, n_segment=this_segment, n_div=n_div)
+                        blocks[i].conv1 = TemporalShift(b.conv1, n_segment=this_segment, n_div=n_div, inplace=inplace_shift)
                 return nn.Sequential(*blocks)
 
             net.layer1 = make_block_temporal(net.layer1, n_segment_list[0])

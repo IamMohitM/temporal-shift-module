@@ -277,9 +277,9 @@ for i, data_label_pairs in enumerate(zip(*data_iter_list)):
         for p, g in zip(ensembled_predict, this_label.cpu().numpy()):
             output.append([p[None, ...], g])
         cnt_time = time.time() - proc_start_time
-        prec1, prec5 = accuracy(torch.from_numpy(ensembled_predict), this_label, topk=(1, 5))
-        top1.update(prec1.item(), this_label.numel())
-        top5.update(prec5.item(), this_label.numel())
+        prec1 = accuracy(torch.from_numpy(ensembled_predict), this_label, topk=(1,))
+        top1.update(prec1[0], this_label.numel())
+        # top5.update(prec5.item(), this_label.numel())
         if i % 20 == 0:
             print('video {} done, total {}/{}, average {:.3f} sec/video, '
                   'moving Prec@1 {:.3f} Prec@5 {:.3f}'.format(i * args.batch_size, i * args.batch_size, total_num,

@@ -6,3 +6,6 @@ pretrained/
 *.pyc
 *__pycache__*
 .vscode/
+
+s3_buckets/
+temp/

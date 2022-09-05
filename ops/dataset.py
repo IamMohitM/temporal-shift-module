@@ -163,23 +163,10 @@ class TSNDataSet(data.Dataset):
             return offsets + 1
 
     def __getitem__(self, index):
-        record = self.video_list[index]
-        # check this is a legit video folder
-
-        if self.image_tmpl == 'flow_{}_{:05d}.jpg':
-            file_name = self.image_tmpl.format('x', 1)
-            full_path = os.path.join(self.root_path, record.path, file_name)
-        elif self.image_tmpl == '{:06d}-{}_{:05d}.jpg':
-            file_name = self.image_tmpl.format(int(record.path), 'x', 1)
-            full_path = os.path.join(self.root_path, '{:06d}'.format(int(record.path)), file_name)
-        else:
-            file_name = self.image_tmpl.format(1)
-            full_path = os.path.join(self.root_path, record.path, file_name)
-
-        while not os.path.exists(full_path):
-            print('################## Not Found:', os.path.join(self.root_path, record.path, file_name))
-            index = np.random.randint(len(self.video_list))
+        try:
             record = self.video_list[index]
+            # check this is a legit video folder
+
             if self.image_tmpl == 'flow_{}_{:05d}.jpg':
                 file_name = self.image_tmpl.format('x', 1)
                 full_path = os.path.join(self.root_path, record.path, file_name)
@@ -188,14 +175,31 @@ class TSNDataSet(data.Dataset):
                 full_path = os.path.join(self.root_path, '{:06d}'.format(int(record.path)), file_name)
             else:
                 file_name = self.image_tmpl.format(1)
-                full_path = os.path.join(self.root_path, record.path, file_name)
-                print(f"Next path {full_path}")
+                full_path = os.path.join(record.path, file_name)
 
-        if not self.test_mode:
-            segment_indices = self._sample_indices(record) if self.random_shift else self._get_val_indices(record)
-        else:
-            segment_indices = self._get_test_indices(record)
-        return self.get(record, segment_indices)
+            while not os.path.exists(full_path):
+                print('################## Not Found:', os.path.join(record.path, file_name))
+                index = np.random.randint(len(self.video_list))
+                record = self.video_list[index]
+                if self.image_tmpl == 'flow_{}_{:05d}.jpg':
+                    file_name = self.image_tmpl.format('x', 1)
+                    full_path = os.path.join(self.root_path, record.path, file_name)
+                elif self.image_tmpl == '{:06d}-{}_{:05d}.jpg':
+                    file_name = self.image_tmpl.format(int(record.path), 'x', 1)
+                    full_path = os.path.join(self.root_path, '{:06d}'.format(int(record.path)), file_name)
+                else:
+                    file_name = self.image_tmpl.format(1)
+                    full_path = os.path.join(self.root_path, record.path, file_name)
+                    print(f"Next path {full_path}")
+
+            if not self.test_mode:
+                segment_indices = self._sample_indices(record) if self.random_shift else self._get_val_indices(record)
+            else:
+                segment_indices = self._get_test_indices(record)
+            return self.get(record, segment_indices)
+        except Exception as e:
+            print(e)
+            print(f"Error {record}")
 
     def get(self, record, indices):
 
