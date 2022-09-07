@@ -17,7 +17,7 @@ class TSN(nn.Module):
                  dropout=0.8, img_feature_dim=256,
                  crop_num=1, partial_bn=True, print_spec=True, pretrain='imagenet',
                  is_shift=False, shift_div=8, shift_place='blockres', fc_lr5=False,
-                 temporal_pool=False, non_local=False):
+                 temporal_pool=False, non_local=False, binary_node=False):
         super(TSN, self).__init__()
         self.modality = modality
         self.num_segments = num_segments
@@ -58,7 +58,7 @@ class TSN(nn.Module):
 
         self._prepare_base_model(base_model)
 
-        feature_dim = self._prepare_tsn(num_class)
+        feature_dim = self._prepare_tsn(num_class, binary_node)
 
         if self.modality == 'Flow':
             print("Converting the ImageNet model to a flow init model")
@@ -78,14 +78,19 @@ class TSN(nn.Module):
         if partial_bn:
             self.partialBN(True)
 
-    def _prepare_tsn(self, num_class):
+    def _prepare_tsn(self, num_class, binary_node=False):
         feature_dim = getattr(self.base_model, self.base_model.last_layer_name).in_features
         if self.dropout == 0:
             setattr(self.base_model, self.base_model.last_layer_name, nn.Linear(feature_dim, num_class))
             self.new_fc = None
         else:
             setattr(self.base_model, self.base_model.last_layer_name, nn.Dropout(p=self.dropout))
-            self.new_fc = nn.Linear(feature_dim, num_class)
+            if num_class > 2:
+                self.new_fc = nn.Linear(feature_dim, num_class)
+            else:
+                print(f"Binary node set to {binary_node}")
+                self.new_fc = nn.Linear(feature_dim, 1) if binary_node else nn.Linear(feature_dim, 2)
+        
 
         std = 0.001
         if self.new_fc is None:

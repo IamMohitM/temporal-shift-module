@@ -24,6 +24,7 @@ parser.add_argument('--img_feature_dim', default=256, type=int, help="the featur
 parser.add_argument('--suffix', type=str, default=None)
 parser.add_argument('--pretrain', type=str, default='imagenet')
 parser.add_argument('--tune_from', type=str, default=None, help='fine-tune from checkpoint')
+parser.add_argument('--binary_node', '--bn', default=False, action="store_true")
 
 # ========================= Learning Configs ==========================
 parser.add_argument('--epochs', default=120, type=int, metavar='N',

@@ -62,7 +62,8 @@ def main():
                 is_shift=args.shift, shift_div=args.shift_div, shift_place=args.shift_place,
                 fc_lr5=not (args.tune_from and args.dataset in args.tune_from),
                 temporal_pool=args.temporal_pool,
-                non_local=args.non_local)
+                non_local=args.non_local,
+                binary_node=args.binary_node)
 
     crop_size = model.crop_size
     scale_size = model.scale_size
@@ -171,7 +172,10 @@ def main():
 
     # define loss function (criterion) and optimizer
     if args.loss_type == 'nll':
-        criterion = torch.nn.CrossEntropyLoss().cuda()
+        if args.binary_node:
+            criterion = torch.nn.BCEWithLogitsLoss().cuda()
+        else:
+            criterion = torch.nn.CrossEntropyLoss().cuda()
     else:
         raise ValueError("Unknown loss type")
 
@@ -217,6 +221,7 @@ def main():
 
 
 def train(train_loader, model, criterion, optimizer, epoch, log, tf_writer):
+    global args
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
@@ -238,16 +243,21 @@ def train(train_loader, model, criterion, optimizer, epoch, log, tf_writer):
 
         target = target.cuda()
         input_var = torch.autograd.Variable(input)
-        target_var = torch.autograd.Variable(target)
+        target_var = torch.autograd.Variable(target.to(torch.float32))
 
         # compute output
-        output = model(input_var)
+        output = model(input_var).squeeze(axis=1)
         loss = criterion(output, target_var)
 
         # measure accuracy and record loss
-        prec1 = accuracy(output.data, target, topk=(1,))
+        if args.binary_node:
+            preds = (torch.sigmoid(output.data) > 0.5)
+            prec1 = (preds == target_var).float().mean()
+            top1.update(prec1.item(), input.size(0))
+        else:
+            prec1 = accuracy(output.data, target, topk=(1,))
+            top1.update(prec1[0].item(), input.size(0))
         losses.update(loss.item(), input.size(0))
-        top1.update(prec1[0].item(), input.size(0))
         # top5.update(prec5.item(), input.size(0)
 
         # compute gradient and do SGD step
@@ -283,6 +293,7 @@ def train(train_loader, model, criterion, optimizer, epoch, log, tf_writer):
 
 
 def validate(val_loader, model, criterion, epoch, log=None, tf_writer=None):
+    global args
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
@@ -297,14 +308,23 @@ def validate(val_loader, model, criterion, epoch, log=None, tf_writer=None):
             target = target.cuda()
 
             # compute output
-            output = model(input)
-            loss = criterion(output, target)
+
+        # compute output
+            output = model(input).squeeze(axis=1)
+            loss = criterion(output, target.float())
+
+        # measure accuracy and record loss
+            if args.binary_node:
+                preds = (torch.sigmoid(output.data) > 0.5)
+                prec1 = (preds == target).float().mean()
+                top1.update(prec1.item(), input.size(0))
+            else:
 
             # measure accuracy and record loss
-            prec1 = accuracy(output.data, target, topk=(1, ))
-
+                prec1 = accuracy(output.data, target, topk=(1, ))
+                top1.update(prec1[0].item(), input.size(0))
+                
             losses.update(loss.item(), input.size(0))
-            top1.update(prec1[0].item(), input.size(0))
             # top5.update(prec5.item(), input.size(0))
 
             # measure elapsed time
@@ -343,8 +363,8 @@ def save_checkpoint(state, model, is_best):
     filename = '%s/%s/ckpt.pth.tar' % (args.root_model, args.store_name)
     torch.save(state, filename)
     if is_best:
-        print(f"Best model at {state['epoch']}")
-        torch.jit.save(model, '%s/%s/ckpt_ts.pt' % (args.root_model, args.store_name))
+        # print(f"Best model at {state['epoch']}")
+        # torch.jit.save(model, '%s/%s/ckpt_ts.pt' % (args.root_model, args.store_name))
         shutil.copyfile(filename, filename.replace('pth.tar', 'best.pth.tar'))
 
 

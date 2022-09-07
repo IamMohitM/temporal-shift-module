@@ -9,3 +9,7 @@ pretrained/
 
 s3_buckets/
 temp/
+
+*.mp4
+*.webm
+*.mov

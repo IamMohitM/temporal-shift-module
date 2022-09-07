@@ -40,6 +40,8 @@ parser.add_argument('--test_list', type=str, default=None)
 parser.add_argument('--csv_file', type=str, default=None)
 
 parser.add_argument('--softmax', default=False, action="store_true", help='use softmax')
+parser.add_argument('--binary_node', "--bn", default=False, action="store_true", help='')
+parser.add_argument('--no_binary_node', "--nbn", default=False, action="store_true", help='')
 
 parser.add_argument('--max_num', type=int, default=-1)
 parser.add_argument('--input_size', type=int, default=224)
@@ -50,6 +52,9 @@ parser.add_argument('--num_set_segments',type=int, default=1,help='TODO: select 
 parser.add_argument('--pretrain', type=str, default='imagenet')
 
 args = parser.parse_args()
+
+if args.no_binary_node:
+    args.binary_node = False
 
 
 class AverageMeter(object):
@@ -131,7 +136,7 @@ for this_weights, this_test_segments, test_file in zip(weights_list, test_segmen
               img_feature_dim=args.img_feature_dim,
               pretrain=args.pretrain,
               is_shift=is_shift, shift_div=shift_div, shift_place=shift_place,
-              non_local='_nl' in this_weights,
+              non_local='_nl' in this_weights, binary_node=args.binary_node
               )
 
     if 'tpool' in this_weights:
@@ -246,7 +251,10 @@ def eval_video(video_data, net, this_test_segments, modality):
         rst = rst.data.cpu().numpy().copy()
 
         if net.module.is_shift:
-            rst = rst.reshape(batch_size, num_class)
+            if num_class == 2 and args.binary_node:
+                rst = rst.reshape(batch_size, 1)
+            else:
+                rst = rst.reshape(batch_size, num_class)
         else:
             rst = rst.reshape((batch_size, -1, num_class)).mean(axis=1).reshape((batch_size, num_class))
 
@@ -274,19 +282,32 @@ for i, data_label_pairs in enumerate(zip(*data_iter_list)):
             this_rst_list[i_coeff] *= coeff_list[i_coeff]
         ensembled_predict = sum(this_rst_list) / len(this_rst_list)
 
-        for p, g in zip(ensembled_predict, this_label.cpu().numpy()):
-            output.append([p[None, ...], g])
+        if args.binary_node:
+            for p, g in zip(ensembled_predict, this_label.cpu().numpy()):
+                pr = int(torch.sigmoid(torch.Tensor(p)) > 0.5)
+                output.append([pr, g])
+        else:
+            for p, g in zip(ensembled_predict, this_label.cpu().numpy()):
+                output.append([p[None, ...], g])
         cnt_time = time.time() - proc_start_time
-        prec1 = accuracy(torch.from_numpy(ensembled_predict), this_label, topk=(1,))
-        top1.update(prec1[0], this_label.numel())
+        if args.binary_node:
+            preds = (torch.sigmoid(torch.from_numpy(ensembled_predict).squeeze(axis = 1)) > 0.5)
+            prec1 = (preds == this_label).float().mean()
+            top1.update(prec1.item(), this_label.numel())
+        else:
+            prec1 = accuracy(torch.from_numpy(ensembled_predict), this_label, topk=(1,))
+            top1.update(prec1[0], this_label.numel())
         # top5.update(prec5.item(), this_label.numel())
         if i % 20 == 0:
             print('video {} done, total {}/{}, average {:.3f} sec/video, '
                   'moving Prec@1 {:.3f} Prec@5 {:.3f}'.format(i * args.batch_size, i * args.batch_size, total_num,
                                                               float(cnt_time) / (i+1) / args.batch_size, top1.avg, top5.avg))
 
-video_pred = [np.argmax(x[0]) for x in output]
-video_pred_top5 = [np.argsort(np.mean(x[0], axis=0).reshape(-1))[::-1][:5] for x in output]
+if args.binary_node:
+    video_pred = [x[0] for x in output]
+else:
+    video_pred = [np.argmax(x[0]) for x in output]
+# video_pred_top5 = [np.argsort(np.mean(x[0], axis=0).reshape(-1))[::-1][:5] for x in output]
 
 video_labels = [x[1] for x in output]
 
@@ -304,13 +325,13 @@ if args.csv_file is not None:
         with open(args.csv_file, 'w') as f:
             for n, pred in zip(vid_names, video_pred):
                 f.write('{};{}\n'.format(n, categories[pred]))
-    else:
-        with open(args.csv_file, 'w') as f:
-            for n, pred5 in zip(vid_names, video_pred_top5):
-                fill = [n]
-                for p in list(pred5):
-                    fill.append(p)
-                f.write('{};{};{};{};{};{}\n'.format(*fill))
+    # else:
+    #     with open(args.csv_file, 'w') as f:
+    #         for n, pred5 in zip(vid_names, video_pred_top5):
+    #             fill = [n]
+    #             for p in list(pred5):
+    #                 fill.append(p)
+    #             f.write('{};{};{};{};{};{}\n'.format(*fill))
 
 
 cf = confusion_matrix(video_labels, video_pred).astype(float)
