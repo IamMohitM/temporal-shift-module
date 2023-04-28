@@ -13,3 +13,7 @@ temp/
 *.mp4
 *.webm
 *.mov
+*.pth
+*.tar
+*.csv
+*.txt

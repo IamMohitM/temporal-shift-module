@@ -14,10 +14,8 @@ from PIL import Image
 import torch.nn.parallel
 import torch.optim
 from sklearn.metrics import confusion_matrix
-from ops.dataset import TSNDataSet
 from ops.models import TSN
 from ops.transforms import *
-from ops import dataset_config
 from torch.nn import functional as F
 
 from brarista_ml.utils.video_utils import VideoUtils
@@ -31,6 +29,8 @@ parser.add_argument('--full_res', default=False, action="store_true",
 # for true test
 
 parser.add_argument('--binary_node', "--bn", default=False, action="store_true", help='')
+parser.add_argument('--clockwise', default=False, action="store_true", help='')
+parser.add_argument('--anticlockwise', default=False, action="store_true", help='')
 parser.add_argument('--no_binary_node', "--nbn", default=False, action="store_true", help='')
 
 parser.add_argument('--input_size', type=int, required=False, default=224)
@@ -39,7 +39,10 @@ parser.add_argument('--img_feature_dim',type=int, required=False,default=256)
 parser.add_argument('--num_set_segments',type=int, default=1,help='TODO: select multiply set of n-frames from a video')
 parser.add_argument('--pretrain', type=str, default='imagenet')
 
+
 args = parser.parse_args()
+if args.anticlockwise:
+    args.clockwise = False
 
 if args.no_binary_node:
     args.binary_node = False
@@ -75,7 +78,7 @@ net.load_state_dict(base_dict)
 
 cropping = torchvision.transforms.Compose([
             # GroupScale(net.scale_size),
-            GroupCenterCrop(224),
+            GroupCenterCrop(net.input_size),
         ])
 
 transforms = torchvision.transforms.Compose([cropping, Stack(roll=False), ToTorchFormatTensor(div=True), GroupNormalize(net.input_mean, net.input_std) ])
@@ -145,25 +148,25 @@ def process_list(video_list):
     return torch.tensor(preds)
 
     
-
-
-for user in user_ids:
-    path = os.path.join(video_path, user)
-    vids = os.listdir(path)
-    for v in vids:
-        video_list.append(os.path.join(path, v))
-classes = torch.zeros(len(video_list), dtype = int)
-
-# anti_cl_path = "/home/mohitm/repos/temporal-shift-module/data/anticlockwise_videos"
-# video_list = [os.path.join(anti_cl_path, f) for f in os.listdir(anti_cl_path)]
-# classes = torch.ones(len(video_list), dtype=int)
+class_type = 'clockwise' if args.clockwise else 'anticlockwise'
+if args.clockwise:
+    for user in user_ids:
+        path = os.path.join(video_path, user)
+        vids = os.listdir(path)
+        for v in vids:
+            video_list.append(os.path.join(path, v))
+    classes = torch.zeros(len(video_list), dtype = int)
+else:
+    anti_cl_path = "/home/mohitm/repos/temporal-shift-module/data/anticlockwise_videos"
+    video_list = [os.path.join(anti_cl_path, f) for f in os.listdir(anti_cl_path)]
+    classes = torch.ones(len(video_list), dtype=int)
 
 start_time = time.time()
 preds = process_list(video_list)
 print(f"Total time {time.time() - start_time}")
 print(f"preds {preds}")
 print(f"Truth {classes}")
-print(f"Accuracy - {(preds==classes).float().mean()}")
+print(f"{class_type} Accuracy - {(preds==classes).float().mean()}")
 
 
 
